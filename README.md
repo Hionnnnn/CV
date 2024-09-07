@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Convert File by Hion</title>
+    <title>Convert dan Gabung File by Hion</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -41,20 +41,11 @@
 </head>
 <body>
 
-    <div id="welcome">
-        <h1>Selamat Datang Di Convert File By Hion</h1>
-        <p>Masukan Kode Untuk Lanjut</p>
-        <input type="text" id="accessCode" placeholder="Masukkan Kode"><br>
-        <button onclick="verifyCode()">Lanjut</button>
-        <p id="code-error"></p>
-        <p>Ingin Membeli Kode? Chat @SENNPOP Di Tele</p>
-    </div>
-
-    <div id="main-content" class="hidden">
+    <div id="main-content">
         <div class="menu">
             <button onclick="showSection('cv-vcf')">CV VCF</button>
-            <button onclick="showSection('cv-vcf-gabung')">CV VCF GABUNG</button>
             <button onclick="showSection('pecah-vcf')">PECAH VCF</button>
+            <button onclick="showSection('gabung-vcf')">GABUNG VCF</button>
         </div>
 
         <!-- CV VCF Section -->
@@ -68,48 +59,37 @@
             <p id="result"></p>
         </div>
         
-        <!-- CV VCF GABUNG Section -->
-        <div id="cv-vcf-gabung" class="hidden">
-            <h2>Konversi Input ke VCF</h2>
-            <textarea id="contactNumbers" placeholder="MASUKAN NOMOR KONTAK, pisahkan dengan baris baru..."></textarea><br>
-            <input type="text" id="contactName" placeholder="MASUKAN NAMA KONTAK"><br>
-            <textarea id="adminNumbers" placeholder="MASUKAN NOMOR ADMIN, pisahkan dengan baris baru..."></textarea><br>
-            <input type="text" id="adminName" placeholder="MASUKAN NAMA ADMIN"><br>
-            <textarea id="navyNumbers" placeholder="MASUKAN NOMOR NAVY, pisahkan dengan baris baru..."></textarea><br>
-            <input type="text" id="navyName" placeholder="MASUKAN NAMA NAVY"><br>
-            <input type="text" id="fileName" placeholder="Nama File Output"><br>
-            <button onclick="convertToVCFGabung()">Jadikan VCF</button>
-            <p id="result-gabung"></p>
-        </div>
-
         <!-- PECAH VCF Section -->
         <div id="pecah-vcf" class="hidden">
             <h2>Pecah File VCF</h2>
             <input type="file" id="vcfFile" accept=".vcf"><br>
-            <input type="text" id="newContactName" placeholder="Nama Kontak Baru"><br>
             <input type="number" id="contactLimitPecah" placeholder="Jumlah Kontak per File"><br>
             <input type="text" id="fileNamePecah" placeholder="Nama File Output"><br>
             <button onclick="splitVCF()">Pecah VCF</button>
             <p id="result-pecah"></p>
         </div>
+
+        <!-- GABUNG VCF Section -->
+        <div id="gabung-vcf" class="hidden">
+            <h2>Gabung Kontak VCF</h2>
+            <textarea id="noAdmin" rows="5" placeholder="Masukkan nomor admin, pisahkan dengan baris baru..."></textarea><br>
+            <input type="text" id="namaAdmin" placeholder="Masukkan nama admin"><br>
+            <textarea id="noNavy" rows="5" placeholder="Masukkan nomor navy, pisahkan dengan baris baru..."></textarea><br>
+            <input type="text" id="namaNavy" placeholder="Masukkan nama navy"><br>
+            <textarea id="noKontak" rows="5" placeholder="Masukkan nomor kontak lain, pisahkan dengan baris baru..."></textarea><br>
+            <input type="text" id="namaKontak" placeholder="Masukkan nama kontak lain"><br>
+            <input type="text" id="fileNameGabungVCF" placeholder="Nama file output"><br>
+            <button onclick="gabungVCF()">Gabungkan VCF</button>
+            <p id="result-gabung-vcf"></p>
+        </div>
     </div>
 
     <script>
-        function verifyCode() {
-            const codeInput = document.getElementById('accessCode').value;
-            const correctCode = '051928';
-            if (codeInput === correctCode) {
-                document.getElementById('welcome').classList.add('hidden');
-                document.getElementById('main-content').classList.remove('hidden');
-            } else {
-                document.getElementById('code-error').textContent = 'KODE YANG ANDA GUNAKAN SALAH';
-            }
-        }
-
         function showSection(sectionId) {
-            document.getElementById('cv-vcf').classList.add('hidden');
-            document.getElementById('cv-vcf-gabung').classList.add('hidden');
-            document.getElementById('pecah-vcf').classList.add('hidden');
+            const sections = ['cv-vcf', 'pecah-vcf', 'gabung-vcf'];
+            sections.forEach(section => {
+                document.getElementById(section).classList.add('hidden');
+            });
             document.getElementById(sectionId).classList.remove('hidden');
         }
 
@@ -129,6 +109,7 @@
 
             reader.onload = function(event) {
                 const lines = event.target.result.split('\n');
+                const zip = new JSZip();
                 let vcfContent = '';
                 let fileCount = 1;
                 let contactCount = 0;
@@ -137,12 +118,11 @@
                     const phone = line.trim();
                     if (phone) {
                         const name = `${contactName} ${index + 1}`;
-
-                        vcfContent += `BEGIN:VCARD\nVERSION:3.0\nFN:${name}\nTEL:${phone}\nEND:VCARD\n\n`;
+                        vcfContent += `BEGIN:VCARD\nVERSION:3.0\nFN:${name}\nTEL:+${phone}\nEND:VCARD\n\n`;
                         contactCount++;
 
                         if (contactCount >= contactLimit) {
-                            saveVCF(vcfContent, fileName, fileCount);
+                            zip.file(`${fileName}-${fileCount}.vcf`, vcfContent);
                             vcfContent = '';
                             contactCount = 0;
                             fileCount++;
@@ -151,61 +131,27 @@
                 });
 
                 if (vcfContent !== '') {
-                    saveVCF(vcfContent, fileName, fileCount);
+                    zip.file(`${fileName}-${fileCount}.vcf`, vcfContent);
                 }
 
-                document.getElementById('result').textContent = 'Konversi berhasil! File VCF siap diunduh.';
+                zip.generateAsync({ type: 'blob' }).then(function(content) {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(content);
+                    link.download = `${fileName}.zip`;
+                    link.click();
+                });
+
+                document.getElementById('result').textContent = 'Konversi berhasil! File ZIP siap diunduh.';
             };
 
             reader.readAsText(file);
         }
 
-        function convertToVCFGabung() {
-            const contactNumbers = document.getElementById('contactNumbers').value.split('\n');
-            const contactName = document.getElementById('contactName').value || 'Kontak';
-            
-            const adminNumbers = document.getElementById('adminNumbers').value.split('\n');
-            const adminName = document.getElementById('adminName').value || 'Admin';
-            
-            const navyNumbers = document.getElementById('navyNumbers').value.split('\n');
-            const navyName = document.getElementById('navyName').value || 'Navy';
-
-            const fileName = document.getElementById('fileName').value || 'contacts';
-
-            let vcfContent = '';
-            
-            contactNumbers.forEach((phone, index) => {
-                if (phone.trim()) {
-                    vcfContent += `BEGIN:VCARD\nVERSION:3.0\nFN:${contactName} ${index + 1}\nTEL:${phone.trim()}\nEND:VCARD\n\n`;
-                }
-            });
-
-            adminNumbers.forEach((phone, index) => {
-                if (phone.trim()) {
-                    vcfContent += `BEGIN:VCARD\nVERSION:3.0\nFN:${adminName} ${index + 1}\nTEL:${phone.trim()}\nEND:VCARD\n\n`;
-                }
-            });
-
-            navyNumbers.forEach((phone, index) => {
-                if (phone.trim()) {
-                    vcfContent += `BEGIN:VCARD\nVERSION:3.0\nFN:${navyName} ${index + 1}\nTEL:${phone.trim()}\nEND:VCARD\n\n`;
-                }
-            });
-
-            if (vcfContent !== '') {
-                saveVCF(vcfContent, fileName);
-                document.getElementById('result-gabung').textContent = 'Konversi berhasil! File VCF siap diunduh.';
-            } else {
-                alert('Masukkan setidaknya satu nomor telepon.');
-            }
-        }
-
         function splitVCF() {
             const fileInput = document.getElementById('vcfFile');
             const file = fileInput.files[0];
-            const newContactName = document.getElementById('newContactName').value || 'Kontak';
-            const contactLimitPecah = parseInt(document.getElementById('contactLimitPecah').value) || 100;
-            const fileNamePecah = document.getElementById('fileNamePecah').value || 'contacts';
+            const contactLimit = parseInt(document.getElementById('contactLimitPecah').value) || 100;
+            const fileName = document.getElementById('fileNamePecah').value || 'contacts';
 
             if (!file) {
                 alert('Silakan pilih file VCF terlebih dahulu.');
@@ -215,57 +161,91 @@
             const reader = new FileReader();
 
             reader.onload = function(event) {
-                const lines = event.target.result.split('\n');
+                const vcfLines = event.target.result.split('\n');
+                const zip = new JSZip();
                 let vcfContent = '';
                 let fileCount = 1;
                 let contactCount = 0;
-                let isInCard = false;
+                let inVCard = false;
 
-                lines.forEach(line => {
+                vcfLines.forEach(line => {
                     if (line.startsWith('BEGIN:VCARD')) {
-                        isInCard = true;
-                        vcfContent += line + '\n';
-                    } else if (line.startsWith('END:VCARD')) {
-                        isInCard = false;
-                        vcfContent += line + '\n';
-                        contactCount++;
+                        inVCard = true;
+                    }
 
-                        if (contactCount >= contactLimitPecah) {
-                            saveVCF(vcfContent, fileNamePecah, fileCount);
+                    if (inVCard) {
+                        vcfContent += line + '\n';
+                    }
+
+                    if (line.startsWith('END:VCARD')) {
+                        contactCount++;
+                        inVCard = false;
+
+                        if (contactCount >= contactLimit) {
+                            zip.file(`${fileName}-${fileCount}.vcf`, vcfContent);
                             vcfContent = '';
                             contactCount = 0;
                             fileCount++;
                         }
-                    } else if (isInCard) {
-                        if (line.startsWith('FN:')) {
-                            const nameLine = line.split(':');
-                            vcfContent += `FN:${newContactName} ${contactCount + 1}\n`;
-                        } else {
-                            vcfContent += line + '\n';
-                        }
-                    } else {
-                        vcfContent += line + '\n';
                     }
                 });
 
                 if (vcfContent !== '') {
-                    saveVCF(vcfContent, fileNamePecah, fileCount);
+                    zip.file(`${fileName}-${fileCount}.vcf`, vcfContent);
                 }
 
-                document.getElementById('result-pecah').textContent = 'File VCF berhasil dipisah! Unduh file-file VCF yang terpisah.';
+                zip.generateAsync({ type: 'blob' }).then(function(content) {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(content);
+                    link.download = `${fileName}.zip`;
+                    link.click();
+                });
+
+                document.getElementById('result-pecah').textContent = 'Pecah file VCF berhasil! File ZIP siap diunduh.';
             };
 
             reader.readAsText(file);
         }
 
-        function saveVCF(content, fileName, fileCount) {
-            const blob = new Blob([content], { type: 'text/vcard' });
-            const downloadLink = document.createElement('a');
-            downloadLink.href = URL.createObjectURL(blob);
-            downloadLink.download = fileCount ? `${fileName}-${fileCount}.vcf` : `${fileName}.vcf`;
-            downloadLink.click();
+        function gabungVCF() {
+            const noAdmin = document.getElementById('noAdmin').value.trim().split('\n').filter(Boolean);
+            const namaAdmin = document.getElementById('namaAdmin').value.trim();
+            const noNavy = document.getElementById('noNavy').value.trim().split('\n').filter(Boolean);
+            const namaNavy = document.getElementById('namaNavy').value.trim();
+            const noKontak = document.getElementById('noKontak').value.trim().split('\n').filter(Boolean);
+            const namaKontak = document.getElementById('namaKontak').value.trim();
+            const fileName = document.getElementById('fileNameGabungVCF').value.trim() || 'combined';
+
+            if (noAdmin.length === 0 && noNavy.length === 0 && noKontak.length === 0) {
+                alert('Silakan masukkan nomor kontak.');
+                return;
+            }
+
+            let vcfContent = '';
+
+            function addContacts(numbers, namePrefix) {
+                numbers.forEach((number, index) => {
+                    const name = `${namePrefix} ${index + 1}`;
+                    vcfContent += `BEGIN:VCARD\nVERSION:3.0\nFN:${name}\nTEL:+${number}\nEND:VCARD\n\n`;
+                });
+            }
+
+            // Tambahkan kontak
+            if (noAdmin.length > 0) addContacts(noAdmin, namaAdmin);
+            if (noNavy.length > 0) addContacts(noNavy, namaNavy);
+            if (noKontak.length > 0) addContacts(noKontak, namaKontak);
+
+            // Buat file VCF dan tawarkan unduhan
+            const blob = new Blob([vcfContent], { type: 'text/vcard' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${fileName}.vcf`;
+            link.click();
+
+            document.getElementById('result-gabung-vcf').textContent = 'Gabung VCF berhasil! File siap diunduh.';
         }
     </script>
-
+    <!-- JSZip library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </body>
 </html>
